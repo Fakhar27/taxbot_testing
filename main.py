@@ -4,19 +4,20 @@ import logging
 from datetime import datetime
 from openai import OpenAI
 
-api_key = "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"
-
+api_key = "g9MZcozfif6MsP51zXa54FSJI4metuT8_eS9xSkAr_fIFaW91rUeolFrOrL0wgZ1Xf8mXiWImkT3BlbkFJcEW4w7rPq57A0lyiPRjYVdAkaFOviIUTKyD7JMbpd8mqsm9ECagDFeOgbhqj5E5vyzzcneOn8A"
 client = OpenAI(api_key=api_key)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# this will be a function to create an assistant with vector_store and file search capabilities
+# two paramters: filepath which is the path to the file attached whcih assistant will use vector store and model which assistant will use
 def setup_assistant(filepath: str, model: str = "gpt-4o"):
     """
     Set up the initial assistant with vector store and file search capabilities
     """
     try:
-        # Create vector store
+        # vector_store's create function to create a vector store which expires after 7 days
         vector_store = client.beta.vector_stores.create(
             name="Study Buddy Store",
             expires_after={
@@ -24,15 +25,14 @@ def setup_assistant(filepath: str, model: str = "gpt-4o"):
                 "days": 7
             }
         )
-        
-        # Upload file to vector store
+        # uploading the file to the vector_store we just created
         with open(filepath, "rb") as file:
             file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
                 vector_store_id=vector_store.id,
                 files=[(os.path.basename(filepath), file)]
             )
-        
-        # Create assistant
+        # finally creating an assistant which uses the vector store we just created
+        # model is mandotory parameter, others are optional
         assistant = client.beta.assistants.create(
             name="Study Buddy",
             instructions="""You are a helpful study assistant who knows a lot about understanding research papers.
@@ -56,7 +56,7 @@ def setup_assistant(filepath: str, model: str = "gpt-4o"):
         logger.info(f"Assistant created with ID: {assistant.id}")
         logger.info(f"Vector store created with ID: {vector_store.id}")
         
-        return assistant, vector_store
+        return assistant, vector_store # will return all the ids etc of both recnently created assistant and vector store
         
     except Exception as e:
         logger.error(f"Error setting up assistant: {e}")
@@ -67,14 +67,12 @@ def main():
     Main function to set up the initial assistant and store IDs
     """
     try:
-        # Setup assistant with initial file
+        # calling the setup_assistant function
         assistant, vector_store = setup_assistant("./erasmus.pdf")
-        
-        # Print IDs for future use
+        # printing the assistant id and vector store id
         print(f"\nAssistant ID: {assistant.id}")
         print(f"Vector Store ID: {vector_store.id}")
-        
-        # Create initial thread
+        # creating a thread with vector store id
         thread = client.beta.threads.create(
             tool_resources={
                 "file_search": {
@@ -91,108 +89,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# import os
-# import openai
-# import requests
-# import json
-
-# import time
-# import logging
-# from datetime import datetime
-# import streamlit as st
-
-# client = openai.OpenAI()
-
-# model = "gpt-4-1106-preview" 
-
-# # Step 1. Upload a file to OpenaI embeddings ===
-# filepath = "./erasmus.pdf"
-# file_object = client.files.create(file=open(filepath, "rb"), purpose="assistants")
-
-# # Step 2 - Create an assistant
-# assistant = client.beta.assistants.create(
-#     name="Erasmus Guider",
-#     instructions="""Analyze and summarize documents with precision. Extract key info, features, and structures. Preprocess text for clarity. Identify entities, dates, and numbers. Understand document purpose and generate concise summaries. Present structured output with metadata. Learn and adapt with user feedback. Ensure data security. Stay updated with NLP advancements. Guide users with clear documentation""",
-#     tools=[{"type": "retrieval"}],
-#     model=model,
-#     file_ids=[file_object.id],
-# )
-
-# # === Get the Assis ID ===
-# assis_id = assistant.id
-# print(assis_id)
-
-# # == Hardcoded ids to be used once the first code run is done and the assistant was created
-# thread_id = "thread_inGWHWAOfo3yxnwNZCophiXL"
-# assis_id = "asst_KPhtBJnaLiJaYqGDqnoHn9oP"
-
-# # == Step 3. Create a Thread
-# message = "What is mining?"
-
-# # thread = client.beta.threads.create()
-# # thread_id = thread.id
-# # print(thread_id)
-
-# message = client.beta.threads.messages.create(
-#     thread_id=thread_id, role="user", content=message
-# )
-
-# # == Run the Assistant
-# run = client.beta.threads.runs.create(
-#     thread_id=thread_id,
-#     assistant_id=assis_id,
-#     instructions="Please address the user as d",
-# )
-
-
-# def wait_for_run_completion(client, thread_id, run_id, sleep_interval=5):
-#     """
-#     Waits for a run to complete and prints the elapsed time.:param client: The OpenAI client object.
-#     :param thread_id: The ID of the thread.
-#     :param run_id: The ID of the run.
-#     :param sleep_interval: Time in seconds to wait between checks.
-#     """
-#     while True:
-#         try:
-#             run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run_id)
-#             if run.completed_at:
-#                 elapsed_time = run.completed_at - run.created_at
-#                 formatted_elapsed_time = time.strftime(
-#                     "%H:%M:%S", time.gmtime(elapsed_time)
-#                 )
-#                 print(f"Run completed in {formatted_elapsed_time}")
-#                 logging.info(f"Run completed in {formatted_elapsed_time}")
-#                 # Get messages here once Run is completed!
-#                 messages = client.beta.threads.messages.list(thread_id=thread_id)
-#                 last_message = messages.data[0]
-#                 response = last_message.content[0].text.value
-#                 print(f"Assistant Response: {response}")
-#                 break
-#         except Exception as e:
-#             logging.error(f"An error occurred while retrieving the run: {e}")
-#             break
-#         logging.info("Waiting for run to complete...")
-#         time.sleep(sleep_interval)
-
-
-# # == Run it
-# wait_for_run_completion(client=client, thread_id=thread_id, run_id=run.id)
-
-# # === Check the Run Steps - LOGS ===
-# run_steps = client.beta.threads.runs.steps.list(thread_id=thread_id, run_id=run.id)
-# print(f"Run Steps --> {run_steps.data[0]}")
